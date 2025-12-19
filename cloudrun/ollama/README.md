@@ -74,7 +74,7 @@ Once complete, you'll see the service URL in the output.
 
 The output at the end should look like that:
 
-```bash
+```
 ⚠️ this is an example output, do not copy/paste me to the terminal! :)
 
 Deploying from source requires an Artifact Registry Docker repository to store built containers. A repository named [cloud-run-source-deploy] in region [europe-west1] will be created.
@@ -97,7 +97,10 @@ Service URL: https://ollama-<rest-of-url>.europe-west1.run.app
 
 ## Testing the deployment
 
-Replace `YOUR_SERVICE_URL` with the URL from the deployment output.
+Replace `YOUR_SERVICE_URL` with the URL from the deployment output. You can also retrieve the service url via command:
+```bash
+gcloud run services describe ollama-gemma --region=europe-west1 --format='value(status.url)'
+```
 
 **Linux / macOS:**
 

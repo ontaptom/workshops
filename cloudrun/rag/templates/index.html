@@ -1,0 +1,174 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📚 PDF RAG on Cloud Run</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <style>
+        .log-box {
+            background: #1a1a2e;
+            color: #0f0;
+            font-family: monospace;
+            padding: 1rem;
+            border-radius: 8px;
+            height: 200px;
+            overflow-y: auto;
+            margin: 1rem 0;
+        }
+        .log-box p { margin: 0.25rem 0; }
+        .error { color: #f55; }
+        .done { color: #5f5; font-weight: bold; }
+        .sources { font-size: 0.85rem; color: #888; }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <h1>📚 PDF RAG on Cloud Run</h1>
+        <p>Upload PDFs to build a knowledge base, then ask questions.</p>
+        
+        <label>Ollama URL
+            <input type="text" id="ollama_url" placeholder="https://ollama-xxx.run.app">
+        </label>
+        
+        <h3>📁 Knowledge Base</h3>
+        <p>Status: <strong id="kb-status">0 chunks</strong></p>
+        
+        <label>Upload PDF
+            <input type="file" id="pdf" accept=".pdf">
+        </label>
+        <div class="grid">
+            <button id="process-btn">📥 Process PDF</button>
+            <button id="clear-btn" class="secondary">🗑️ Clear</button>
+        </div>
+        
+        <div class="log-box" id="log"></div>
+        
+        <h3>❓ Ask a Question</h3>
+        <label>Question
+            <input type="text" id="question" placeholder="What is this document about?">
+        </label>
+        <button id="ask-btn">Ask</button>
+        
+        <div id="answer-box" style="display:none; margin-top:1rem;">
+            <h4>Answer</h4>
+            <p id="answer"></p>
+            <h4>Sources</h4>
+            <div id="sources" class="sources"></div>
+        </div>
+    </main>
+    
+    <script>
+        const logBox = document.getElementById('log');
+        const kbStatus = document.getElementById('kb-status');
+        let pollInterval = null;
+        let lastLogCount = 0;
+        
+        function renderLogs(logs) {
+            if (logs.length !== lastLogCount) {
+                logBox.innerHTML = logs.map(msg => {
+                    let cls = '';
+                    if (msg.startsWith('❌')) cls = 'error';
+                    if (msg.startsWith('✅')) cls = 'done';
+                    return `<p class="${cls}">${msg}</p>`;
+                }).join('');
+                logBox.scrollTop = logBox.scrollHeight;
+                lastLogCount = logs.length;
+            }
+        }
+        
+        function pollStatus() {
+            fetch('/status')
+                .then(r => r.json())
+                .then(data => {
+                    kbStatus.textContent = data.chunks + ' chunks';
+                    renderLogs(data.logs);
+                    
+                    if (data.job_status === 'done' || data.job_status === 'error') {
+                        clearInterval(pollInterval);
+                        pollInterval = null;
+                    }
+                });
+        }
+        
+        document.getElementById('process-btn').addEventListener('click', function() {
+            const fileInput = document.getElementById('pdf');
+            const ollamaUrl = document.getElementById('ollama_url').value;
+            
+            if (!fileInput.files[0]) {
+                alert('Please select a PDF file');
+                return;
+            }
+            if (!ollamaUrl) {
+                alert('Please enter Ollama URL');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('pdf', fileInput.files[0]);
+            formData.append('ollama_url', ollamaUrl);
+            
+            lastLogCount = 0;
+            logBox.innerHTML = '';
+            
+            fetch('/process', {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+                pollInterval = setInterval(pollStatus, 1000);
+            });
+        });
+        
+        document.getElementById('clear-btn').addEventListener('click', function() {
+            fetch('/clear', {method: 'POST'})
+                .then(() => {
+                    logBox.innerHTML = '<p>Knowledge base cleared</p>';
+                    lastLogCount = 0;
+                    kbStatus.textContent = '0 chunks';
+                });
+        });
+        
+        document.getElementById('ask-btn').addEventListener('click', function() {
+            const question = document.getElementById('question').value;
+            const ollama_url = document.getElementById('ollama_url').value;
+            
+            if (!question || !ollama_url) {
+                alert('Please enter both Ollama URL and a question');
+                return;
+            }
+            
+            document.getElementById('answer-box').style.display = 'none';
+            
+            fetch('/ask', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({question, ollama_url})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+                
+                document.getElementById('answer').textContent = data.answer;
+                document.getElementById('sources').innerHTML = data.sources
+                    .map(s => `<p>[${s.score.toFixed(3)}] ${s.text}...</p>`)
+                    .join('');
+                document.getElementById('answer-box').style.display = 'block';
+            });
+        });
+        
+        fetch('/status').then(r => r.json()).then(data => {
+            kbStatus.textContent = data.chunks + ' chunks';
+        });
+    </script>
+</body>
+</html>
