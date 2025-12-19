@@ -22,6 +22,34 @@ Deploy Ollama with GPU on Google Cloud Run and build simple apps on top of it.
 
 Start with `ollama/`, then try the apps that connect to it.
 
+## 🧹 Cleanup
+
+These labs create Cloud Run services that incur costs while running.
+
+List your deployed services:
+```bash
+gcloud run services list --region=europe-west1
+```
+
+Remove services (if you followed the instructions as-is):
+```bash
+gcloud run services delete ollama-gemma --region=europe-west1
+gcloud run services delete image-describer --region=europe-west1
+gcloud run services delete rag-demo --region=europe-west1
+```
+
+Deploying from source also creates Artifact Registry repositories for container images.
+
+List repositories:
+```bash
+gcloud artifacts repositories list --location=europe-west1
+```
+
+Remove a repository:
+```bash
+gcloud artifacts repositories delete cloud-run-source-deploy --location=europe-west1
+```
+
 ## 📬 Contact
 
 Tomek Porozynski
