@@ -21,7 +21,7 @@ git clone https://github.com/ontaptom/workshops.git
 ### 2. Navigate to proper structure
 
 ```bash
-$ cd workshops/cloudrun/ollama/
+cd workshops/cloudrun/ollama/
 ```
 
 ## Deployment
